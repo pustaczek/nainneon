@@ -1,9 +1,17 @@
-#![feature(custom_test_frameworks, decl_macro)]
+#![feature(
+    abi_x86_interrupt,
+    const_mut_refs,
+    const_raw_ptr_to_usize_cast,
+    custom_test_frameworks,
+    decl_macro
+)]
 #![test_runner(crate::test::runner)]
 #![reexport_test_harness_main = "test_main"]
 #![no_main]
 #![no_std]
 
+mod gdt;
+mod interrupt;
 mod qemu;
 mod serial;
 #[cfg(test)]
@@ -19,8 +27,15 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main();
 
+    gdt::init();
+    interrupt::init();
+    interrupt::enable();
+
     println!("Hello, world!");
-    loop {}
+
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
 
 #[cfg(not(test))]

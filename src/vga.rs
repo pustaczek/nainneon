@@ -1,4 +1,5 @@
 use core::fmt;
+use spin::mutex::SpinMutex;
 use volatile::Volatile;
 
 pub macro print($($arg:tt)*) {
@@ -57,11 +58,11 @@ struct Terminal {
 const WIDTH: usize = 80;
 const HEIGHT: usize = 25;
 
-static mut TERMINAL: Terminal = Terminal {
+static TERMINAL: SpinMutex<Terminal> = SpinMutex::new(Terminal {
     column: 0,
     row: 0,
     style: Style::new(Color::White, Color::Black),
-};
+});
 
 impl Style {
     const fn new(foreground: Color, background: Color) -> Style {
@@ -132,12 +133,15 @@ impl fmt::Write for Terminal {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
-    unsafe { &mut TERMINAL }.write_fmt(args).unwrap();
+    x86_64::instructions::interrupts::without_interrupts(|| TERMINAL.lock().write_fmt(args))
+        .unwrap();
 }
 
 #[allow(dead_code)]
 pub fn set_style(foreground: Color, background: Color) {
-    unsafe { &mut TERMINAL }.style = Style::new(foreground, background);
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        TERMINAL.lock().style = Style::new(foreground, background)
+    });
 }
 
 #[allow(dead_code)]

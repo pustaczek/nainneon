@@ -23,8 +23,6 @@ lazy_static! {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    SERIAL1
-        .lock()
-        .write_fmt(args)
+    x86_64::instructions::interrupts::without_interrupts(move || SERIAL1.lock().write_fmt(args))
         .expect("writing to serial failed");
 }

@@ -1,15 +1,16 @@
-#![feature(custom_test_frameworks)]
+#![feature(custom_test_frameworks, decl_macro)]
 #![test_runner(crate::test::runner)]
 #![reexport_test_harness_main = "test_main"]
 #![no_main]
 #![no_std]
 
 mod qemu;
-#[macro_use]
 mod serial;
+#[cfg(test)]
 mod test;
 mod vga;
 
+use crate::vga::println;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 

@@ -1,4 +1,5 @@
 use crate::qemu;
+use crate::serial::{serial_print, serial_println};
 use core::panic::PanicInfo;
 
 pub trait Testable {

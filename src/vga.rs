@@ -1,15 +1,13 @@
 use core::fmt;
 use volatile::Volatile;
 
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+pub macro print($($arg:tt)*) {
+    $crate::vga::_print(format_args!($($arg)*))
 }
 
-#[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+pub macro println {
+    () => ($crate::vga::print!("\n")),
+    ($($arg:tt)*) => ($crate::vga::print!("{}\n", format_args!($($arg)*))),
 }
 
 #[allow(dead_code)]

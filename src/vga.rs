@@ -137,10 +137,12 @@ pub fn _print(args: fmt::Arguments) {
     unsafe { &mut TERMINAL }.write_fmt(args).unwrap();
 }
 
+#[allow(dead_code)]
 pub fn set_style(foreground: Color, background: Color) {
     unsafe { &mut TERMINAL }.style = Style::new(foreground, background);
 }
 
+#[allow(dead_code)]
 pub fn reset_style() {
     set_style(Color::White, Color::Black);
 }

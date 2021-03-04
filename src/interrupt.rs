@@ -2,13 +2,18 @@ use crate::gdt::DOUBLE_FAULT_IST;
 use crate::vga;
 use crate::vga::{print, println, Color};
 use lazy_static::lazy_static;
+use pc_keyboard::layouts::Us104Key;
+use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1};
 use pic8259_simple::ChainedPics;
+use spin::Mutex;
+use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum Index {
     Timer = PIC_1_OFFSET,
+    Keyboard,
 }
 
 pub const PIC_1_OFFSET: u8 = 32;
@@ -24,6 +29,7 @@ lazy_static! {
                 .set_stack_index(DOUBLE_FAULT_IST as u16);
         }
         idt[Index::Timer.as_usize()].set_handler_fn(on_timer);
+        idt[Index::Keyboard.as_usize()].set_handler_fn(on_keyboard);
         idt
     };
 }
@@ -65,4 +71,26 @@ extern "x86-interrupt" fn on_double_fault(frame: &mut InterruptStackFrame, code:
 extern "x86-interrupt" fn on_timer(_: &mut InterruptStackFrame) {
     print!(".");
     unsafe { PICS.lock().notify_end_of_interrupt(Index::Timer.as_u8()) }
+}
+
+extern "x86-interrupt" fn on_keyboard(_: &mut InterruptStackFrame) {
+    lazy_static! {
+        static ref KEYBOARD: spin::Mutex<Keyboard<Us104Key, ScancodeSet1>> =
+            Mutex::new(Keyboard::new(Us104Key, ScancodeSet1, HandleControl::Ignore));
+    }
+
+    let mut keyboard = KEYBOARD.lock();
+    let mut port = Port::new(0x60);
+
+    let scancode: u8 = unsafe { port.read() };
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(chr) => print!("{}", chr),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
+
+    unsafe { PICS.lock().notify_end_of_interrupt(Index::Keyboard.as_u8()) }
 }

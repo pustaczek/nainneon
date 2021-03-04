@@ -1,0 +1,11 @@
+[package]
+name = "nainneon"
+version = "0.0.0"
+authors = ["Mateusz Cegiełka <mateusz@cegla.net>"]
+edition = "2018"
+
+[dependencies]
+bootloader = "0.9.8"
+
+[profile.dev]
+panic = "abort"

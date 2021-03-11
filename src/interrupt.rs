@@ -7,7 +7,8 @@ use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1};
 use pic8259_simple::ChainedPics;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -28,6 +29,7 @@ lazy_static! {
                 .set_handler_fn(on_double_fault)
                 .set_stack_index(DOUBLE_FAULT_IST as u16);
         }
+        idt.page_fault.set_handler_fn(on_page_fault);
         idt[Index::Timer.as_usize()].set_handler_fn(on_timer);
         idt[Index::Keyboard.as_usize()].set_handler_fn(on_keyboard);
         idt
@@ -69,7 +71,7 @@ extern "x86-interrupt" fn on_double_fault(frame: &mut InterruptStackFrame, code:
 }
 
 extern "x86-interrupt" fn on_timer(_: &mut InterruptStackFrame) {
-    print!(".");
+    // print!(".");
     unsafe { PICS.lock().notify_end_of_interrupt(Index::Timer.as_u8()) }
 }
 
@@ -93,4 +95,18 @@ extern "x86-interrupt" fn on_keyboard(_: &mut InterruptStackFrame) {
     }
 
     unsafe { PICS.lock().notify_end_of_interrupt(Index::Keyboard.as_u8()) }
+}
+
+extern "x86-interrupt" fn on_page_fault(frame: &mut InterruptStackFrame, code: PageFaultErrorCode) {
+    vga::set_style(Color::Yellow, Color::Black);
+    println!(
+        "x86 exception, page fault {:?} at {:?}\n{:#?}",
+        code,
+        Cr2::read(),
+        frame
+    );
+    vga::reset_style();
+    loop {
+        x86_64::instructions::hlt();
+    }
 }

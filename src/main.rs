@@ -1,5 +1,6 @@
 #![feature(
     abi_x86_interrupt,
+    alloc_error_handler,
     const_mut_refs,
     const_raw_ptr_to_usize_cast,
     custom_test_frameworks,
@@ -10,8 +11,12 @@
 #![no_main]
 #![no_std]
 
+extern crate alloc;
+
+mod allocator;
 mod gdt;
 mod interrupt;
+mod memory;
 mod qemu;
 mod serial;
 #[cfg(test)]
@@ -19,11 +24,18 @@ mod test;
 mod vga;
 
 use crate::vga::println;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use bootloader::BootInfo;
+use core::alloc::Layout;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
+use x86_64::structures::paging::Page;
+use x86_64::VirtAddr;
 
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
+bootloader::entry_point!(main);
+
+fn main(boot: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
@@ -31,7 +43,10 @@ pub extern "C" fn _start() -> ! {
     interrupt::init();
     interrupt::enable();
 
-    println!("Hello, world!");
+    let physical_memory_offset = VirtAddr::new(boot.physical_memory_offset);
+    let mut page_table = unsafe { memory::init(physical_memory_offset) };
+    let mut frame_allocator = unsafe { memory::BumpFrameAllocator::init(&boot.memory_map) };
+    allocator::init_heap(&mut page_table, &mut frame_allocator).expect("heap init failed");
 
     loop {
         x86_64::instructions::hlt();
@@ -45,4 +60,9 @@ fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
     vga::reset_style();
     loop {}
+}
+
+#[alloc_error_handler]
+fn on_bad_alloc(layout: Layout) -> ! {
+    panic!("allocation error with {:?}", layout);
 }
